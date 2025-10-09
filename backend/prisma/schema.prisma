@@ -1,0 +1,132 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  LAWYER
+  STAFF
+  CLIENT
+}
+
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+  PARTNERSHIP
+  TRUST
+  SOCIETY
+}
+
+enum KYCStatus {
+  PENDING
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+  INCOMPLETE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(CLIENT)
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  assignedClients Client[] @relation("AssignedLawyer")
+  createdClients  Client[] @relation("CreatedBy")
+
+  @@map("users")
+}
+
+model Client {
+  id                String     @id @default(cuid())
+  clientId          String     @unique // Auto-generated client ID (CLT-2025-001)
+  name              String
+  email             String?
+  phone             String
+  alternatePhone    String?
+  address           String
+  city              String
+  state             String
+  pincode           String
+  country           String     @default("Nepal")
+  
+  // Identity Documents (Nepal)
+  panNumber         String?    // PAN (Permanent Account Number)
+  citizenshipNo     String?    // Citizenship Certificate Number
+  nationalId        String?    // National Identity (NID) Number
+  passportNo        String?    // Passport Number
+  
+  // Company Details (if applicable)
+  companyName       String?
+  companyType       String?
+  cinNumber         String?
+  
+  // Client Classification
+  clientType        ClientType @default(INDIVIDUAL)
+  kycStatus         KYCStatus  @default(PENDING)
+  isActive          Boolean    @default(true)
+  priority          Priority   @default(MEDIUM)
+  
+  // Business Fields
+  assignedLawyerId  String?
+  createdById       String
+  notes             String?
+  tags              String[]   @default([])
+  
+  // Metadata
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  // Relationships
+  assignedLawyer    User?      @relation("AssignedLawyer", fields: [assignedLawyerId], references: [id])
+  createdBy         User       @relation("CreatedBy", fields: [createdById], references: [id])
+  
+  @@map("clients")
+  @@index([clientId])
+  @@index([email])
+  @@index([phone])
+  @@index([assignedLawyerId])
+}
+
+// Future models for complete system (will be added in next phase)
+// model Case {
+//   id           String     @id @default(cuid())
+//   title        String
+//   caseNumber   String     @unique
+//   clientId     String     
+//   client       Client     @relation(fields: [clientId], references: [id])
+//   assignedUserId String
+//   court        String
+//   filingDate   DateTime
+//   nextHearing  DateTime?
+//   description  String?
+//   priority     Priority   @default(MEDIUM)
+//   createdAt    DateTime   @default(now())
+//   updatedAt    DateTime   @updatedAt
+//   
+//   client       User       @relation(fields: [clientId], references: [id])
+//   assignedUser User       @relation(fields: [assignedUserId], references: [id])
+//   
+//   @@map("cases")
+// }
