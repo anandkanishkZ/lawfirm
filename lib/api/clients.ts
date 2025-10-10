@@ -99,8 +99,8 @@ export interface ClientStats {
  */
 export const createClient = async (clientData: CreateClientData): Promise<{ client: Client }> => {
   try {
-    const response = await api.post('/clients', clientData);
-    return response.data as { client: Client };
+    const response = await api.post<{ client: Client }>('/clients', clientData);
+    return response.data!;
   } catch (error) {
     if (error instanceof ApiError) {
       throw new Error(error.message);
@@ -132,8 +132,7 @@ export const getAllClients = async (filters: ClientFilters = {}): Promise<{
       }
     });
 
-    const response = await api.get(`/clients?${queryParams.toString()}`);
-    return response.data as {
+    const response = await api.get<{
       clients: Client[];
       pagination: {
         currentPage: number;
@@ -143,7 +142,17 @@ export const getAllClients = async (filters: ClientFilters = {}): Promise<{
         hasNextPage: boolean;
         hasPrevPage: boolean;
       };
-    };
+    }>(`/clients?${queryParams.toString()}`);
+    
+    // Debug logging
+    console.log('🔍 getAllClients API Response:', response);
+    console.log('🔍 Response.data:', response.data);
+    console.log('🔍 Clients array:', response.data?.clients);
+    console.log('🔍 Clients count:', response.data?.clients?.length);
+    
+    // The response structure is { status: 'success', data: { clients, pagination } }
+    // So we need to access response.data to get the actual data
+    return response.data!;
   } catch (error) {
     if (error instanceof ApiError) {
       throw new Error(error.message);
@@ -157,8 +166,8 @@ export const getAllClients = async (filters: ClientFilters = {}): Promise<{
  */
 export const getClientById = async (id: string): Promise<{ client: Client }> => {
   try {
-    const response = await api.get(`/clients/${id}`);
-    return response.data as { client: Client };
+    const response = await api.get<{ client: Client }>(`/clients/${id}`);
+    return response.data!;
   } catch (error) {
     if (error instanceof ApiError) {
       throw new Error(error.message);
@@ -172,8 +181,8 @@ export const getClientById = async (id: string): Promise<{ client: Client }> => 
  */
 export const updateClient = async (id: string, updateData: UpdateClientData): Promise<{ client: Client }> => {
   try {
-    const response = await api.put(`/clients/${id}`, updateData);
-    return response.data as { client: Client };
+    const response = await api.put<{ client: Client }>(`/clients/${id}`, updateData);
+    return response.data!;
   } catch (error) {
     if (error instanceof ApiError) {
       throw new Error(error.message);
@@ -201,8 +210,8 @@ export const deleteClient = async (id: string): Promise<void> => {
  */
 export const getClientStats = async (): Promise<{ stats: ClientStats }> => {
   try {
-    const response = await api.get('/clients/stats');
-    return response.data as { stats: ClientStats };
+    const response = await api.get<{ stats: ClientStats }>('/clients/stats');
+    return response.data!;
   } catch (error) {
     if (error instanceof ApiError) {
       throw new Error(error.message);

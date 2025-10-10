@@ -167,7 +167,7 @@ const getAllClients = catchAsync(async (req, res) => {
   
   // Build where clause
   const whereClause = {
-    isActive: isActive === 'true'
+    isActive: isActive === 'true' || isActive === true
   };
 
   // Apply role-based filtering

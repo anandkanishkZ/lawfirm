@@ -344,3 +344,76 @@
     transform: scale(0.98);
   }
 }
+
+/* Print Styles */
+@media print {
+  /* Hide UI elements when printing */
+  .no-print,
+  nav,
+  header,
+  footer,
+  button,
+  .sidebar {
+    display: none !important;
+  }
+
+  /* Optimize for printing */
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  body {
+    margin: 0;
+    padding: 20px;
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+
+  /* Page breaks */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  table, th, td {
+    border: 1px solid #ddd !important;
+  }
+
+  th, td {
+    padding: 8px !important;
+    text-align: left;
+  }
+
+  /* Links */
+  a[href]:after {
+    content: " (" attr(href) ")";
+    font-size: 10pt;
+    font-weight: normal;
+  }
+
+  a[href^="#"]:after,
+  a[href^="javascript:"]:after {
+    content: "";
+  }
+
+  /* Badges and labels */
+  .badge,
+  .label {
+    border: 1px solid #000 !important;
+    padding: 2px 6px !important;
+  }
+}
