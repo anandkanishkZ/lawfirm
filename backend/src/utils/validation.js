@@ -29,10 +29,10 @@ const validateRegister = [
     .withMessage('Please provide a valid email address'),
   
   body('password')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+    .isLength({ min: 12 })
+    .withMessage('Password must be at least 12 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'),
   
   body('name')
     .trim()
@@ -74,10 +74,10 @@ const validatePasswordChange = [
     .withMessage('Current password is required'),
   
   body('newPassword')
-    .isLength({ min: 8 })
-    .withMessage('New password must be at least 8 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('New password must contain at least one lowercase letter, one uppercase letter, and one number'),
+    .isLength({ min: 12 })
+    .withMessage('New password must be at least 12 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/)
+    .withMessage('New password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'),
   
   body('confirmPassword')
     .custom((value, { req }) => {

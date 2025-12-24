@@ -10,6 +10,8 @@ const {
   changePassword,
   checkEmail,
   refreshToken,
+  unlockAccount,
+  getSecurityStatus,
 } = require('../controllers/authController');
 
 const { authenticate } = require('../middleware/auth');
@@ -51,13 +53,17 @@ router.post('/register', authLimiter, validateRegister, register);
 router.post('/login', loginLimiter, validateLogin, login);
 router.post('/logout', logout);
 router.get('/check-email', checkEmail);
+router.post('/refresh', refreshToken); // Refresh token endpoint (uses refresh token, not access token)
 
 // Protected routes (authentication required)
 router.use(authenticate); // All routes below this line require authentication
 
 router.get('/me', getMe);
+router.get('/security-status', getSecurityStatus);
 router.put('/profile', validateProfileUpdate, updateProfile);
 router.put('/change-password', validatePasswordChange, changePassword);
-router.post('/refresh-token', refreshToken);
+
+// Admin only routes
+router.post('/unlock/:userId', unlockAccount); // Admin can unlock accounts
 
 module.exports = router;

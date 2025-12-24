@@ -69,30 +69,105 @@ const generateRandomPassword = () => {
  * @returns {object} - Validation result
  */
 const validatePasswordStrength = (password) => {
-  const minLength = 8;
+  const minLength = 12; // Increased from 8
   const hasUpperCase = /[A-Z]/.test(password);
   const hasLowerCase = /[a-z]/.test(password);
   const hasNumbers = /\d/.test(password);
   const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
-  const isValid = password.length >= minLength && hasUpperCase && hasLowerCase && hasNumbers;
+  // Common passwords blacklist
+  const commonPasswords = [
+    'password', 'password123', '12345678', '123456789', '12345678910',
+    'qwerty', 'abc123', 'monkey', '1234567', 'letmein',
+    'trustno1', 'dragon', 'baseball', 'iloveyou', 'master',
+    'sunshine', 'ashley', 'bailey', 'passw0rd', 'shadow',
+    'admin', 'admin123', 'root', 'toor', 'pass', 'test',
+    'welcome', 'login', 'access', 'secret', 'password1'
+  ];
+
+  const isCommonPassword = commonPasswords.includes(password.toLowerCase());
+
+  const errors = [];
+  if (password.length < minLength) {
+    errors.push(`Password must be at least ${minLength} characters long`);
+  }
+  if (!hasUpperCase) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+  if (!hasLowerCase) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
+  if (!hasNumbers) {
+    errors.push('Password must contain at least one number');
+  }
+  if (!hasSpecialChar) {
+    errors.push('Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)');
+  }
+  if (isCommonPassword) {
+    errors.push('This password is too common. Please choose a more unique password');
+  }
+
+  const isValid = errors.length === 0;
 
   return {
     isValid,
-    errors: [
-      ...(password.length < minLength ? [`Password must be at least ${minLength} characters long`] : []),
-      ...(!hasUpperCase ? ['Password must contain at least one uppercase letter'] : []),
-      ...(!hasLowerCase ? ['Password must contain at least one lowercase letter'] : []),
-      ...(!hasNumbers ? ['Password must contain at least one number'] : []),
-    ],
+    errors,
     score: [
       password.length >= minLength,
       hasUpperCase,
       hasLowerCase,
       hasNumbers,
       hasSpecialChar,
+      !isCommonPassword,
     ].filter(Boolean).length,
   };
+};
+
+/**
+ * Check if password was used recently
+ * @param {string} password - New password
+ * @param {Array<string>} passwordHistory - Array of previous password hashes
+ * @returns {Promise<boolean>} - True if password was used before
+ */
+const isPasswordInHistory = async (password, passwordHistory) => {
+  if (!passwordHistory || passwordHistory.length === 0) {
+    return false;
+  }
+
+  for (const oldHash of passwordHistory) {
+    const match = await comparePassword(password, oldHash);
+    if (match) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
+ * Generate refresh token
+ * @param {string} userId - User ID
+ * @returns {string} - Refresh token
+ */
+const generateRefreshToken = (userId) => {
+  const payload = {
+    userId,
+    type: 'refresh',
+  };
+
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+    issuer: 'law-firm-management',
+  });
+};
+
+/**
+ * Verify refresh token
+ * @param {string} token - Refresh token
+ * @returns {object} - Decoded token payload
+ */
+const verifyRefreshToken = (token) => {
+  return jwt.verify(token, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
 };
 
 module.exports = {
@@ -102,4 +177,7 @@ module.exports = {
   verifyToken,
   generateRandomPassword,
   validatePasswordStrength,
+  isPasswordInHistory,
+  generateRefreshToken,
+  verifyRefreshToken,
 };

@@ -40,6 +40,85 @@ enum Priority {
   URGENT
 }
 
+enum CaseType {
+  CIVIL
+  CRIMINAL
+  PROPERTY
+  COMMERCIAL
+  FAMILY
+  CORPORATE
+}
+
+enum CaseStatus {
+  ACTIVE
+  PENDING
+  CLOSED
+  ON_HOLD
+}
+
+enum HearingType {
+  PRELIMINARY
+  EVIDENCE
+  ARGUMENTS
+  FINAL
+  INTERIM
+  URGENT
+}
+
+enum HearingStatus {
+  SCHEDULED
+  COMPLETED
+  POSTPONED
+  CANCELLED
+}
+
+enum DocumentType {
+  CONTRACT
+  AGREEMENT
+  PLEADING
+  EVIDENCE
+  CORRESPONDENCE
+  COURT_ORDER
+  JUDGMENT
+  NOTICE
+  PETITION
+  AFFIDAVIT
+  OTHER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+  PARTIALLY_PAID
+}
+
+enum AuditAction {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  REGISTER
+  PASSWORD_CHANGE
+  PASSWORD_RESET
+  PROFILE_UPDATE
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+  ROLE_CHANGE
+  PERMISSION_CHANGE
+  CLIENT_CREATE
+  CLIENT_UPDATE
+  CLIENT_DELETE
+  CASE_CREATE
+  CASE_UPDATE
+  CASE_DELETE
+  DOCUMENT_UPLOAD
+  DOCUMENT_DELETE
+  DATA_EXPORT
+  SETTINGS_CHANGE
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -51,11 +130,48 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Security & Session Management
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAttempt    DateTime?
+  lastLoginSuccess    DateTime?
+  lastPasswordChange  DateTime?
+  passwordHistory     String[]  @default([]) // Store last 5 password hashes
+  refreshToken        String?   @db.Text
+  refreshTokenExpiry  DateTime?
+  
   // Relationships
-  assignedClients Client[] @relation("AssignedLawyer")
-  createdClients  Client[] @relation("CreatedBy")
+  assignedClients Client[]    @relation("AssignedLawyer")
+  createdClients  Client[]    @relation("CreatedBy")
+  assignedCases   Case[]      @relation("AssignedLawyer")
+  createdCases    Case[]      @relation("CreatedBy")
+  hearings        Hearing[]
+  documents       Document[]
+  createdInvoices Invoice[]   @relation("CreatedBy")
+  auditLogs       AuditLog[]
 
   @@map("users")
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  userId    String?
+  action    AuditAction
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  success   Boolean     @default(true)
+  errorMessage String?
+  metadata  Json?       // Additional context data
+  createdAt DateTime    @default(now())
+  
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@map("audit_logs")
+  @@index([userId])
+  @@index([action])
+  @@index([success])
+  @@index([createdAt])
 }
 
 model Client {
@@ -101,6 +217,9 @@ model Client {
   // Relationships
   assignedLawyer    User?      @relation("AssignedLawyer", fields: [assignedLawyerId], references: [id])
   createdBy         User       @relation("CreatedBy", fields: [createdById], references: [id])
+  cases             Case[]
+  documents         Document[]
+  invoices          Invoice[]
   
   @@map("clients")
   @@index([clientId])
@@ -109,24 +228,195 @@ model Client {
   @@index([assignedLawyerId])
 }
 
-// Future models for complete system (will be added in next phase)
-// model Case {
-//   id           String     @id @default(cuid())
-//   title        String
-//   caseNumber   String     @unique
-//   clientId     String     
-//   client       Client     @relation(fields: [clientId], references: [id])
-//   assignedUserId String
-//   court        String
-//   filingDate   DateTime
-//   nextHearing  DateTime?
-//   description  String?
-//   priority     Priority   @default(MEDIUM)
-//   createdAt    DateTime   @default(now())
-//   updatedAt    DateTime   @updatedAt
-//   
-//   client       User       @relation(fields: [clientId], references: [id])
-//   assignedUser User       @relation(fields: [assignedUserId], references: [id])
-//   
-//   @@map("cases")
-// }
+model Case {
+  id                String     @id @default(cuid())
+  caseNumber        String     @unique // Auto-generated case number (CS/2025/001)
+  title             String
+  type              CaseType   @default(CIVIL)
+  status            CaseStatus @default(PENDING)
+  
+  // Client & Lawyer
+  clientId          String
+  clientName        String     // Denormalized for performance
+  assignedLawyerId  String?
+  assignedLawyer    String?    // Denormalized lawyer name
+  
+  // Court Details
+  court             String
+  filingDate        DateTime
+  nextHearing       DateTime?
+  
+  // Case Information
+  description       String?    @db.Text
+  
+  // Parties Involved (stored as JSON arrays)
+  plaintiff         String[]   @default([])
+  defendant         String[]   @default([])
+  
+  // Classification
+  priority          Priority   @default(MEDIUM)
+  tags              String[]   @default([])
+  
+  // Metadata
+  isActive          Boolean    @default(true)
+  createdById       String
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  
+  // Relationships
+  client            Client     @relation(fields: [clientId], references: [id])
+  assignedLawyerUser User?    @relation("AssignedLawyer", fields: [assignedLawyerId], references: [id])
+  createdBy         User       @relation("CreatedBy", fields: [createdById], references: [id])
+  hearings          Hearing[]
+  documents         Document[]
+  invoices          Invoice[]
+  
+  @@map("cases")
+  @@index([caseNumber])
+  @@index([clientId])
+  @@index([assignedLawyerId])
+  @@index([status])
+  @@index([type])
+  @@index([priority])
+  @@index([filingDate])
+  @@index([nextHearing])
+}
+
+model Hearing {
+  id                String        @id @default(cuid())
+  caseId            String
+  title             String
+  type              HearingType   @default(PRELIMINARY)
+  status            HearingStatus @default(SCHEDULED)
+  
+  // Scheduling
+  hearingDate       DateTime
+  startTime         String        // Time in HH:mm format
+  endTime           String?       // Time in HH:mm format
+  duration          Int?          // Duration in minutes
+  
+  // Court Details
+  court             String
+  courtroom         String?
+  judge             String?
+  
+  // Case & Lawyer
+  caseName          String        // Denormalized for performance
+  lawyerId          String
+  lawyerName        String        // Denormalized for performance
+  
+  // Additional Info
+  notes             String?       @db.Text
+  outcome           String?       @db.Text
+  nextHearingDate   DateTime?
+  
+  // Reminders
+  reminderSent      Boolean       @default(false)
+  reminderDate      DateTime?
+  
+  // Metadata
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relationships
+  case              Case          @relation(fields: [caseId], references: [id])
+  lawyer            User          @relation(fields: [lawyerId], references: [id])
+  
+  @@map("hearings")
+  @@index([caseId])
+  @@index([lawyerId])
+  @@index([hearingDate])
+  @@index([status])
+  @@index([type])
+}
+
+model Document {
+  id                String        @id @default(cuid())
+  title             String
+  type              DocumentType  @default(OTHER)
+  
+  // File Details
+  fileName          String
+  fileSize          Int           // Size in bytes
+  mimeType          String
+  fileUrl           String        @db.Text
+  
+  // Associations
+  caseId            String?
+  clientId          String?
+  uploadedById      String
+  
+  // Classification
+  tags              String[]      @default([])
+  description       String?       @db.Text
+  
+  // Access Control
+  isConfidential    Boolean       @default(false)
+  sharedWith        String[]      @default([])
+  
+  // Metadata
+  uploadedAt        DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relationships
+  case              Case?         @relation(fields: [caseId], references: [id])
+  client            Client?       @relation(fields: [clientId], references: [id])
+  uploadedBy        User          @relation(fields: [uploadedById], references: [id])
+  
+  @@map("documents")
+  @@index([caseId])
+  @@index([clientId])
+  @@index([uploadedById])
+  @@index([type])
+  @@index([uploadedAt])
+}
+
+model Invoice {
+  id                String        @id @default(cuid())
+  invoiceNumber     String        @unique // Auto-generated (INV-2025-001)
+  
+  // Client & Case
+  clientId          String
+  caseId            String?
+  clientName        String        // Denormalized
+  
+  // Financial Details
+  amount            Decimal       @db.Decimal(10, 2)
+  taxAmount         Decimal       @default(0) @db.Decimal(10, 2)
+  discountAmount    Decimal       @default(0) @db.Decimal(10, 2)
+  totalAmount       Decimal       @db.Decimal(10, 2)
+  paidAmount        Decimal       @default(0) @db.Decimal(10, 2)
+  
+  // Payment Details
+  status            InvoiceStatus @default(DRAFT)
+  issueDate         DateTime      @default(now())
+  dueDate           DateTime
+  paidDate          DateTime?
+  paymentMethod     String?
+  paymentReference  String?
+  
+  // Invoice Items (stored as JSON)
+  items             Json          // Array of {description, quantity, rate, amount}
+  
+  // Additional Info
+  notes             String?       @db.Text
+  terms             String?       @db.Text
+  
+  // Metadata
+  createdById       String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relationships
+  client            Client        @relation(fields: [clientId], references: [id])
+  case              Case?         @relation(fields: [caseId], references: [id])
+  createdBy         User          @relation("CreatedBy", fields: [createdById], references: [id])
+  
+  @@map("invoices")
+  @@index([invoiceNumber])
+  @@index([clientId])
+  @@index([caseId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([issueDate])
+}
